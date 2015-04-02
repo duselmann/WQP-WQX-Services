@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd"> 
+
+<mapper namespace="dynaWhere">
+    <sql id="dbSchema">wqp_core.</sql>
+
+    <sql id="activityId">
+        activity in <foreach item="i" collection="activityId" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="analyticalmethod">
+        analytical_method in <foreach item="i" collection="analyticalmethod" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="dataSource">
+        data_source_id in (select data_source_id
+                             from <include refid="dbSchema"/>data_source
+                            where data_source in <foreach item="i" collection="dataSource" open="(" separator="," close=")">#{i}</foreach>)
+    </sql>
+
+    <sql id="bBox">
+        sdo_inside(geom, sdo_geometry(2003, 8265, null, sdo_elem_info_array(1, 1003, 3), sdo_ordinate_array(#{bBox[0]},#{bBox[1]}, #{bBox[2]}, #{bBox[3]}))) = 'TRUE'
+    </sql>
+
+    <sql id="within">
+        sdo_within_distance(geom, sdo_geometry(2001, 8265, sdo_point_type(#{long[0]}, #{lat[0]}, null), null, null), 'DISTANCE='||#{within[0]}||' UNIT=MILE') = 'TRUE'
+    </sql>
+
+    <sql id="countrycode">
+        country_code in 
+        <foreach item="i" collection="countrycode" open="(" separator="," close=")">#{i}</foreach> and 1 = 1
+    </sql>
+
+    <sql id="statecode">
+        (state_code) in <foreach item="i" collection="statecode" open="(" separator="," close=")">#{i}</foreach> and 1 = 1
+    </sql>
+
+    <sql id="countycode">
+        (county_code) in <foreach item="i" collection="countycode" open="(" separator="," close=")">#{i}</foreach> and 1 = 1
+    </sql>
+
+    <sql id="huc">
+    	<foreach item="i" collection="huc" open="(" separator=" or " close=")">
+    		<if test="#{i}.length() == 2">huc_2 = #{i}</if>
+    		<if test="#{i}.length() == 4">huc_4 = #{i}</if>
+    		<if test="#{i}.length() == 6">huc_6 = #{i}</if>
+    		<if test="#{i}.length() == 8">huc_8 = #{i}</if>
+    		<if test="#{i}.length() == 10">huc_10 = #{i}</if>
+    		<if test="#{i}.length() == 12">huc_12 = #{i}</if>
+        </foreach>
+    </sql>
+
+    <sql id="siteType">
+        site_type in <foreach item="i" collection="siteType" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="organization">
+        organization in <foreach item="i" collection="organization" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="pCode">
+        p_code in <foreach item="i" collection="pCode" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="sampleMedia">
+        sample_media in <foreach item="i" collection="sampleMedia" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="characteristicName">
+        characteristic_name in <foreach item="i" collection="characteristicName" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="characteristicType">
+        characteristic_type in <foreach item="i" collection="characteristicType" open="(" separator="," close=")">#{i}</foreach>
+    </sql>
+
+    <sql id="startDateLoHi">
+        event_date
+        <choose>
+            <when test="startDateLo != null &amp;&amp; startDateHi != null">
+        &gt;= to_date(#{startDateLo[0]}, 'MM-DD-YYYY') and event_date &lt; to_date(#{startDateHi[0]},'MM-DD-YYYY')+1
+            </when>
+            <when test="startDateLo != null">
+        &gt;= to_date(#{startDateLo[0]}, 'MM-DD-YYYY')
+            </when>
+            <otherwise>
+        &lt; to_date(#{startDateHi[0]}, 'MM-DD-YYYY')+1
+            </otherwise>
+        </choose>
+    </sql>
+
+    <sql id="dynaTab">
+        <if test="siteid != null">
+            ,(select /*+ cardinality(dyn 1) */ column_value
+                from table(pkg_dynamic_list.get_table(#{siteid,typeHandler=ArrayParameterTypeHandler})) dyn) dynamic_siteid
+        </if>
+    </sql>
+
+    <sql id="dynaWhere">
+        <if test="siteid != null">
+            and (site_id = dynamic_siteid.column_value)
+        </if>
+    </sql>
+
+    <!-- **********************************************************************************************************************
+         *** Result
+         ********************************************************************************************************************** -->
+
+    <sql id="baseWhereResultClauses">
+        <if test="activityId != null">
+            and (<include refid="dynaWhere.activityId" />)
+        </if>
+        <if test="analyticalmethod != null">
+            and (<include refid="dynaWhere.analyticalmethod" />)
+        </if>
+        <if test="characteristicName != null">
+            and (<include refid="dynaWhere.characteristicName" />)
+        </if>
+        <if test="characteristicType != null">
+            and (<include refid="dynaWhere.characteristicType" />)
+        </if>
+        <if test="pCode != null">
+            and (<include refid="dynaWhere.pCode" />)
+        </if>
+        <if test="sampleMedia != null">
+            and (<include refid="dynaWhere.sampleMedia" />)
+        </if>
+        <if test="startDateLo != null || startDateHi != null">
+            and (<include refid="dynaWhere.startDateLoHi" />)
+        </if>
+    </sql>
+
+
+    <!-- **********************************************************************************************************************
+         *** Station
+         ********************************************************************************************************************** -->
+    <sql id="baseWhereStationGeoClauses">
+        <if test="bBox != null &amp;&amp; bBox.length == 4">
+            and (<include refid="dynaWhere.bBox" />)
+        </if>
+        <if test="within != null &amp;&amp; lat != null &amp;&amp; long != null">
+            and (<include refid="dynaWhere.within" />)
+        </if>
+    </sql>
+    
+    <sql id="baseWhereStationClauses">
+        <if test="dataSource != null">
+            and (<include refid="dynaWhere.dataSource" />)
+        </if>
+        <if test="statecode != null">
+            and (<include refid="dynaWhere.statecode" />)
+        </if>
+        <if test="countrycode != null">
+            and (<include refid="dynaWhere.countrycode" />)
+        </if>
+        <if test="countycode != null">
+            and (<include refid="dynaWhere.countycode" />)
+        </if>
+        <if test="huc != null">
+            and (<include refid="dynaWhere.huc" />)
+        </if>
+        <if test="siteType != null">
+            and (<include refid="dynaWhere.siteType" />)
+        </if>
+        <if test ="organization != null">
+            and (<include refid="dynaWhere.organization" />)
+        </if>
+    </sql>
+
+
+</mapper>

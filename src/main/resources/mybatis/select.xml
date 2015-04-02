@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd"> 
+
+<mapper namespace="queries">
+
+    <sql id="dbSchema">wqp_core.</sql>
+
+    <!-- **********************************************************************************************************************
+         *** Result
+         ********************************************************************************************************************** -->
+
+    <select id="resultsWQXCount" parameterType="map" resultType="String">
+        select listagg(data_source || '- station: ' || station_count || '- pc-result: ' || pc_result_count, ';') within group (order by data_source)
+          from (select data_source,
+                       count(distinct s.site_id) station_count,
+                       sum(pc_result_count) pc_result_count
+            <include refid="dynaWhere.resultsCountBase" />
+                     group by data_source) 
+    </select>
+
+
+    <!-- **********************************************************************************************************************
+         *** Station
+         ********************************************************************************************************************** -->
+
+    <sql id="stationsBase">
+        from <include refid="dataMapper.dbSchema"/>station s
+        <include refid="dataMapper.dynaTab" />
+          <where>
+            <include refid="dataMapper.baseWhereStationClauses" />
+              <if test="sampleMedia != null || characteristicName != null || characteristicType != null || startDateLo != null || startDateHi != null ||
+                        activityId != null || analyticalmethod != null || pCode != null">
+                and exists (select null from
+                                   <include refid="dataMapper.dbSchema"/>pc_result
+                               where s.site_id = pc_result.site_id and
+                                     s.data_source_id = pc_result.data_source_id
+                                     <include refid="dataMapper.baseWhereResultClauses" />
+                             )
+            </if>
+            <include refid="dataMapper.dynaWhere" />
+        </where>
+    </sql>
+
+    <sql id="stationsCountBase">
+        from 
+		<if test="sampleMedia == null &amp;&amp; characteristicName == null &amp;&amp; characteristicType == null &amp;&amp;
+                  startDateLo == null &amp;&amp; startDateHi == null &amp;&amp;
+                  activityId == null &amp;&amp; analyticalmethod == null &amp;&amp; pCode == null">
+			<include refid="dataMapper.dbSchema"/>station_sum s
+        	<include refid="dataMapper.dynaTab" />
+          	<where>
+          		<include refid="dataMapper.baseWhereStationGeoClauses" />
+            	<include refid="dataMapper.baseWhereStationClauses" />
+             	<include refid="dataMapper.dynaWhere" />
+            </where>
+        </if>
+        <if test="startDateLo != NULL || startDateHi != NULL || activityId != null">
+       		<if test="bBox == NULL &amp;&amp; within == NULL">
+				<include refid="dataMapper.dbSchema"/>pc_result_sum s
+                <include refid="dataMapper.dynaTab" />
+	            <where>
+					<include refid="dataMapper.baseWhereStationClauses" />
+					<include refid="dataMapper.baseWhereResultClauses" />
+					<include refid="dataMapper.dynaWhere" />
+				</where>
+        	</if>
+        </if>
+        <if test="sampleMedia != NULL || characteristicName != NULL || characteristicType != NULL || 
+                  analyticalmethod != null || pCode != null">
+        	<if test="startDateLo == NULL &amp;&amp; startDateHi == NULL &amp;&amp; within == NULL &amp;&amp; bBox == NULL">
+            	<include refid="dataMapper.dbSchema"/>pc_result_ct_sum s
+                <include refid="dataMapper.dynaTab" />
+               	<where>
+					<include refid="dataMapper.baseWhereStationClauses" />
+					<include refid="dataMapper.baseWhereResultClauses" />
+					<include refid="dataMapper.dynaWhere" />
+				</where>
+             </if>
+     	</if>
+        <if test="within != NULL || bBox != NULL">
+        	<if test="sampleMedia != NULL || characteristicName != NULL || characteristicType != NULL ||
+                      startDateLo != NULL || startDateHi != NULL ||
+                      activityId != null || analyticalmethod != null || pCode != null">
+            	<include refid="dataMapper.dbSchema"/>pc_result_sum a,
+                (select /*+ index_combine(s) */ data_source_id, station_id, site_id
+                   from <include refid="dataMapper.dbSchema"/>station_sum s
+	            	<where>
+	            		<include refid="dataMapper.baseWhereStationGeoClauses" />
+               		</where>
+               	) s
+                <include refid="dataMapper.dynaTab" />
+              	<where>
+		        	<trim prefix=" (" suffix=")" prefixOverrides="AND">
+	            		<include refid="dataMapper.baseWhereStationClauses" />
+	            		<include refid="dataMapper.baseWhereStationClauses" />
+ 						<include refid="dataMapper.baseWhereResultClauses" />
+						<include refid="dataMapper.dynaWhere" />
+					</trim>
+                	and s.site_id = a.site_id
+                	and s.data_source_id = a.data_source_id
+                </where>
+          	</if>
+		</if>
+    </sql>
+
+
+    <sql id="resultsCountBase">
+        <include refid="dataMapper.stationsCountBase"/>
+    </sql>
+
+    <select id="selectStationsMapList" resultType="java.util.LinkedHashMap"  resultOrdered="true">
+        select distinct 
+			ORGANIZATION,
+			ORGANIZATION_NAME,
+			SITE_ID,
+			STATION_NAME,
+			STATION_TYPE_NAME,
+			DESCRIPTION_TEXT,
+			HUC_8 ,
+			DRAIN_AREA_VALUE,
+			DRAIN_AREA_UNIT,
+			CONTRIB_DRAIN_AREA_VALUE,
+			CONTRIB_DRAIN_AREA_UNIT,
+			LATITUDE,
+			LONGITUDE,
+			MAP_SCALE,
+			GEOPOSITION_ACCY_VALUE,
+			GEOPOSITION_ACCY_UNIT,
+			GEOPOSITIONING_METHOD,
+			HDATUM_ID_CODE,
+			ELEVATION_VALUE,
+			ELEVATION_UNIT,
+			VERTICAL_ACCURACY_VALUE,
+			VERTICAL_ACCURACY_UNIT,
+			ELEVATION_METHOD,
+			VDATUM_ID_CODE,
+			COUNTRY_CODE,
+			STATE_CODE,
+			COUNTY_CODE,
+			NAT_AQFR_NAME,
+			AQFR_NAME,
+			AQFR_TYPE_NAME,
+			CONSTRUCTION_DATE,
+			WELL_DEPTH_VALUE,
+			WELL_DEPTH_UNIT,
+			HOLE_DEPTH_VALUE,
+			HOLE_DEPTH_UNIT,
+			DATA_SOURCE			
+        <include refid="dynaWhere.stationsBase"/>
+            order by organization,
+                     site_id
+    </select>
+    <select id="selectStationsCount" resultType="java.util.LinkedHashMap">
+        select DATA_SOURCE, count(*) ENTRIES
+          <include refid="dynaWhere.stationsBase"/>
+          group by rollup(DATA_SOURCE)
+    </select>
+
+    <!-- **********************************************************************************************************************
+         *** BiologicalResult/Station
+         ********************************************************************************************************************** -->
+
+    <sql id="biologicalResultsBase">
+          from <include refid="queries.dbSchema"/>biological_result
+        <include refid="dynaWhere.dynaTab" />
+        <where>
+            <include refid="dynaWhere.baseWhereStationClauses" />
+            <include refid="dynaWhere.baseWhereResultClauses" />
+            <include refid="dynaWhere.dynaWhere" />
+        </where>
+    </sql>
+
+    <select id="biologicalResultsWQXCount" parameterType="map" resultType="Integer">
+        select count(*) resultsCount
+            <include refid="queries.biologicalResultsBase" />
+    </select>
+
+    <select id="biologicalstationsWQXCount" parameterType="map" resultType="Integer">
+        select count(distinct station_pk) resultsCount
+            <include refid="queries.biologicalResultsBase" />
+    </select>
+</mapper>

@@ -21,7 +21,8 @@
    
 	<mappers>
 		<mapper resource="mybatis/logMapper.xml"/>
-		<mapper resource="mybatis/dataMapper.xml"/>
+		<mapper resource="mybatis/dynamicWhere.xml"/>
+		<mapper resource="mybatis/select.xml"/>
 	 </mappers>
 	
 </configuration>
